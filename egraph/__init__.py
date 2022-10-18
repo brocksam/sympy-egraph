@@ -1,7 +1,7 @@
 """Objects to be included in the `egraph` namespace."""
 
 
-from .symbol import (
+from .core import (
     Add,
     Cos,
     Div,
