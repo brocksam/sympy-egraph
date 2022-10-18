@@ -32,6 +32,7 @@ class Integer(NodeMixin, metaclass=Cached):
     def __init__(self, value):
         if not isinstance(value, int):
             msg = f"Value {repr(value)} is invalid. Values should be integers, not {type(value)}."
+            raise ValueError(msg)
         self._value = value
 
     @property
