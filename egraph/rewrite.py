@@ -1,15 +1,7 @@
-"""Module for rules to rewrite expressions within the e-graph."""
+"""Rules to rewrite expressions within the e-graph."""
+
 
 import dataclasses
-
-__all__ = [
-    RewriteRule,
-    REWRITE_RULES_BASIC,
-    REWRITE_RULES_C,
-    REWRITE_RULES_FORTRAN,
-    REWRITE_RULES_SPEED,
-    REWRITE_RULES_STABILITY,
-]
 
 
 @dataclasses.dataclass
@@ -18,7 +10,7 @@ class RewriteRule:
 
     lhs: str
     rhs: str
-    assumption: str | None
+    assumption: str | None = None
 
 
 REWRITE_RULES_BASIC = (
