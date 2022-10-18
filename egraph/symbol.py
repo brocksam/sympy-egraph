@@ -5,6 +5,8 @@ from .core import Cached, NodeMixin
 
 
 class Symbol(NodeMixin, metaclass=Cached):
+    """Simplified drop-in replacement for SymPy's `Symbol` class."""
+
     def __init__(self, name):
         if not isinstance(name, str):
             msg = f"Name {repr(name)} is invalid. Names should be strings, not {type(name)}."
@@ -29,6 +31,8 @@ class Symbol(NodeMixin, metaclass=Cached):
 
 
 class Integer(NodeMixin, metaclass=Cached):
+    """Simplified drop-in replacement for SymPy's `Integer` class."""
+
     def __init__(self, value):
         if not isinstance(value, int):
             msg = f"Value {repr(value)} is invalid. Values should be integers, not {type(value)}."
