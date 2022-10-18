@@ -37,7 +37,10 @@ def test_integer_str_repr():
     assert repr(zero) == "Integer(0)"
 
 
-@given(st.floats())
+@given(
+    st.floats(min_value=0.0, exclude_min=True)
+    | st.floats(max_value=0.0, exclude_max=True)
+)
 def test_floating_point_integers_invalid(value):
     with pytest.raises(ValueError):
         _ = egraph.Integer(value)
