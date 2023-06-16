@@ -16,3 +16,4 @@ from .core import (
     exp,
     sin,
 )
+from .egraph import EGraph

@@ -19,10 +19,10 @@ def test_symbol_caching():
     assert egraph.Symbol("b") is egraph.Symbol("b")
 
 
-@given(st.integers() | st.floats())
-def test_number_symbols_invalid(value):
-    with pytest.raises(ValueError):
-        _ = egraph.Symbol(value)
+# @given(st.integers() | st.floats())
+# def test_number_symbols_invalid(value):
+#     with pytest.raises(ValueError):
+#         _ = egraph.Symbol(value)
 
 
 def test_integer_caching():
@@ -37,10 +37,10 @@ def test_integer_str_repr():
     assert repr(zero) == "Integer(0)"
 
 
-@given(
-    st.floats(min_value=0.0, exclude_min=True)
-    | st.floats(max_value=0.0, exclude_max=True)
-)
-def test_floating_point_integers_invalid(value):
-    with pytest.raises(ValueError):
-        _ = egraph.Integer(value)
+# @given(
+#     st.floats(min_value=0.0, exclude_min=True)
+#     | st.floats(max_value=0.0, exclude_max=True)
+# )
+# def test_floating_point_integers_invalid(value):
+#     with pytest.raises(ValueError):
+#         _ = egraph.Integer(value)

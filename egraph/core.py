@@ -6,35 +6,40 @@ import weakref
 
 
 class Cached(type):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__cache = weakref.WeakValueDictionary()
-        self.__counter = itertools.count()
+
+    __cache = weakref.WeakValueDictionary()
 
     def __call__(self, *args, **kwargs):
-        if args not in self.__cache:
+        args = tuple(sorted(args))
+        if str(args) not in self.__cache:
             obj = super().__call__(*args, **kwargs)
-            obj._iden = f"@{next(self.__counter)}"
-            self.__cache[args] = obj
-        return self.__cache[args]
+            self.__cache[str(args)] = obj
+        return self.__cache[str(args)]
 
 
-class CommutativeCached(Cached):
-    def __call__(self, *args, **kwargs):
-        args = sorted(args)
-        return super().__call__(*args, **kwargs)
+class Node(metaclass=Cached):
 
-
-class NodeMixin:
-    @property
-    def name(self):
-        return self._name
+    def _cast_for_op(self, other, op, op_name, swap=False):
+        if isinstance(other, str):
+            other = Symbol(other)
+        elif isinstance(other, int):
+            other = Integer(other)
+        else:
+            msg = f"{title(op_name)} between {type(self)} and {type(other)} is not supported."
+            raise ValueError
+        if swap:
+            return op(other, self)
+        return op(self, other)
 
     def __add__(self, other):
-        return Add(self, other)
+        if isinstance(other, Node):
+            return Add(self, other)
+        return self._cast_for_op(other, Add, "addition")
 
     def __radd__(self, other):
-        return Add(other, self)
+        if isinstance(other, Node):
+            return Add(other, self)
+        return self._cast_for_op(other, Add, "addition", swap=True)
 
     def __sub__(self, other):
         return Sub(self, other)
@@ -43,10 +48,14 @@ class NodeMixin:
         return Sub(other, self)
 
     def __mul__(self, other):
-        return Mul(self, other)
+        if isinstance(other, Node):
+            return Mul(self, other)
+        return self._cast_for_op(other, Mul, "multiplication")
 
     def __rmul__(self, other):
-        return Mul(other, self)
+        if isinstance(other, Node):
+            return Mul(other, self)
+        return self._cast_for_op(other, Mul, "multiplication", swap=True)
 
     def __truediv__(self, other):
         return Div(self, other)
@@ -55,13 +64,10 @@ class NodeMixin:
         return Pow(self, other)
 
     def __lt__(self, other):
-        return self._iden < other._iden
-
-    def __hash__(self):
-        return hash(self._iden)
+        return str(self._iden) < str(other._iden)
 
 
-class Symbol(NodeMixin, metaclass=Cached):
+class Symbol(Node):
     """Simplified drop-in replacement for SymPy's `Symbol` class."""
 
     def __init__(self, name):
@@ -74,11 +80,11 @@ class Symbol(NodeMixin, metaclass=Cached):
         elif name[0] == "@":
             msg = f"Name {repr(name)} is invalid. Names beginning with '{str('@')}' are reserved for internal use"
             raise ValueError(msg)
-        self._name = name
+        self._iden = name
 
     @property
     def name(self):
-        return self._name
+        return self._iden
 
     def __repr__(self):
         return f"{self.__class__.__name__}('{self.name}')"
@@ -87,18 +93,18 @@ class Symbol(NodeMixin, metaclass=Cached):
         return f"{self.name}"
 
 
-class Integer(NodeMixin, metaclass=Cached):
+class Integer(Node):
     """Simplified drop-in replacement for SymPy's `Integer` class."""
 
     def __init__(self, value):
         if not isinstance(value, int):
             msg = f"Value {repr(value)} is invalid. Values should be integers, not {type(value)}."
             raise ValueError(msg)
-        self._value = value
+        self._iden = value
 
     @property
     def value(self):
-        return self._value
+        return self._iden
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.value})"
@@ -107,7 +113,7 @@ class Integer(NodeMixin, metaclass=Cached):
         return f"{self.value}"
 
 
-class OpMixin(NodeMixin):
+class Op(Node):
     def __init__(self, *args, **kwargs):
         self._ops = args
 
@@ -120,7 +126,7 @@ class OpMixin(NodeMixin):
         return self._NUM_OPS
 
 
-class UnaryOpMixin(OpMixin):
+class UnaryOp(Op):
 
     _NUM_OPS = 1
 
@@ -135,7 +141,7 @@ class UnaryOpMixin(OpMixin):
         return f"{self._STR}({str(self.op)})"
 
 
-class BinaryOpMixin(OpMixin):
+class BinaryOp(Op):
 
     _NUM_OPS = 2
 
@@ -151,30 +157,29 @@ class BinaryOpMixin(OpMixin):
         lhs = (
             f"{str(self.op1)}"
             if isinstance(
-                self.op1, (self.__class__, Symbolic, UnaryOpMixin, int, float)
+                self.op1, (self.__class__, Integer, Symbol, UnaryOp)
             )
             else f"({str(self.op1)})"
         )
         rhs = (
             f"{str(self.op2)}"
             if isinstance(
-                self.op2, (self.__class__, Symbolic, UnaryOpMixin, int, float)
+                self.op2, (self.__class__, Integer, Symbol, UnaryOp)
             )
             else f"({str(self.op2)})"
         )
         return f"{lhs}{self._STR}{rhs}"
 
 
-class Add(BinaryOpMixin, metaclass=CommutativeCached):
+class Add(BinaryOp):
     _STR = "+"
 
     def __str__(self):
         NO_PARENTHESIS_TYPES = (
             self.__class__,
-            Symbolic,
-            UnaryOpMixin,
-            int,
-            float,
+            Symbol,
+            Integer,
+            UnaryOp,
             Add,
             Sub,
         )
@@ -191,14 +196,14 @@ class Add(BinaryOpMixin, metaclass=CommutativeCached):
         return f"{lhs}{self._STR}{rhs}"
 
 
-class Sub(BinaryOpMixin, metaclass=Cached):
+class Sub(BinaryOp):
     _STR = "-"
 
     def __str__(self):
         NO_PARENTHESIS_TYPES = (
             self.__class__,
-            Symbolic,
-            UnaryOpMixin,
+            Symbol,
+            UnaryOp,
             int,
             float,
             Add,
@@ -218,27 +223,27 @@ class Sub(BinaryOpMixin, metaclass=Cached):
         return f"{lhs}{self._STR}{rhs}"
 
 
-class Mul(BinaryOpMixin, metaclass=CommutativeCached):
+class Mul(BinaryOp):
     _STR = "*"
 
 
-class Div(BinaryOpMixin, metaclass=Cached):
+class Div(BinaryOp):
     _STR = "/"
 
 
-class Pow(BinaryOpMixin, metaclass=Cached):
+class Pow(BinaryOp):
     _STR = "**"
 
 
-class Exp(UnaryOpMixin, metaclass=Cached):
+class Exp(UnaryOp):
     _STR = "exp"
 
 
-class Sin(UnaryOpMixin, metaclass=Cached):
+class Sin(UnaryOp):
     _STR = "sin"
 
 
-class Cos(UnaryOpMixin, metaclass=Cached):
+class Cos(UnaryOp):
     _STR = "cos"
 
 
